@@ -14,9 +14,9 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/pwli0755/goslides/tools/present"
 	"golang.org/x/tools/godoc/static"
 	"golang.org/x/tools/playground/socket"
-	"golang.org/x/tools/present"
 
 	// This will register handlers at /compile and /share that will proxy to the
 	// respective endpoints at play.golang.org. This allows the frontend to call

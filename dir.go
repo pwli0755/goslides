@@ -15,7 +15,7 @@ import (
 	"sort"
 	"strings"
 
-	"golang.org/x/tools/present"
+	"github.com/pwli0755/goslides/tools/present"
 )
 
 func init() {
