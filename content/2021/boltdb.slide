@@ -1,0 +1,52 @@
+Go-nuts and Bolts
+
+ *Introduction* *to* *BoltDB*
+ *18* *February* *2015*
+
+
+Tommi Virtanen
+tv@eagain.net
+https://github.com/boltdb/bolt
+http://eagain.net/
+http://bazil.org/
+@tv
+
+* Title of slide
+
+Some text.
+
+: Presenter notes (first paragraph)
+
+Some more text.
+
+: Presenter notes (subsequent paragraph(s))
+
+* if you're viewing this on the web
+you won't see playground links, the code needs more than stdlib;
+sorry about that
+
+here's links to all the source files
+
+[[https://eagain.net/talks/go-nuts-and-bolts/ex-keyval.go][ex-keyval.go]]
+[[https://eagain.net/talks/go-nuts-and-bolts/ex-keyval.go][ex-cursor.go]]
+[[https://eagain.net/talks/go-nuts-and-bolts/ex-keyval.go][ex-cursor-prefix.go]]
+[[https://eagain.net/talks/go-nuts-and-bolts/ex-keyval.go][ex-cursor-range.go]]
+[[https://eagain.net/talks/go-nuts-and-bolts/ex-keyval.go][ex-snapshot.go]]
+[[https://eagain.net/talks/go-nuts-and-bolts/ex-keyval.go][ex-buckets.go]]
+[[https://eagain.net/talks/go-nuts-and-bolts/ex-keyval.go][ex-mmap.go]]
+
+* Bolt
+[[https://github.com/boltdb/bolt][github.com/boltdb/bolt (godoc)]]
+by Ben Johnson [[][@benbjohnson]]
+
+* key-value store
+[[http://127.0.0.1:9999/content/2021/boltdb/kv.go][kv.go]]
+
+.code boltdb/kv.go /START OPEN OMIT/,/END OPEN OMIT/
+.code boltdb/kv.go /START PUT OMIT/,/END PUT OMIT/
+.play boltdb/kv.go /val/,/val\)\)/
+
+
+all []byte
+
+welcome back to _bucket_
