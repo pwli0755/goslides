@@ -56,7 +56,9 @@ var (
 )
 
 // parseCode parses a code present directive. Its syntax:
-//   .code [-numbers] [-edit] <filename> [address] [highlight]
+//
+//	.code [-numbers] [-edit] <filename> [address] [highlight]
+//
 // The directive may also be ".play" if the snippet is executable.
 func parseCode(ctx *Context, sourceFile string, sourceLine int, cmd string) (Elem, error) {
 	cmd = strings.TrimSpace(cmd)
@@ -189,12 +191,12 @@ var codeTemplate = template.Must(template.New("code").Funcs(template.FuncMap{
 const codeTemplateHTML = `
 {{with .Prefix}}<pre style="display: none"><span>{{printf "%s" .}}</span></pre>{{end -}}
 
-<pre {{if .Edit}} contenteditable="true" spellcheck="false"{{end}}{{if .Numbers}} class="numbers"{{end}}><code class="go">{{/*
+<pre{{if .Edit}} contenteditable="true" spellcheck="false"{{end}}{{if .Numbers}} class="numbers"{{end}}>{{/*
 	*/}}{{range .Lines}}<span num="{{.N}}">{{/*
 	*/}}{{if .HL}}{{leadingSpace .L}}<b>{{trimSpace .L}}</b>{{/*
 	*/}}{{else}}{{.L}}{{end}}{{/*
 */}}</span>
-{{end}}</code></pre>
+{{end}}</pre>
 {{with .Suffix}}<pre style="display: none"><span>{{printf "%s" .}}</span></pre>{{end -}}
 `
 

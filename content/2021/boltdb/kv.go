@@ -50,7 +50,6 @@ func main() {
 	get := func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("bukkit"))
 
-
 		val := bucket.Get([]byte("answer"))
 		if val == nil {
 			// not found
@@ -58,8 +57,6 @@ func main() {
 		}
 		fmt.Println(val)
 		fmt.Println(string(val))
-
-
 
 		return nil
 	}

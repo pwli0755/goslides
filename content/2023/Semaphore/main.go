@@ -1,0 +1,43 @@
+package main
+
+import (
+	"fmt"
+	"golang.org/x/sync/semaphore"
+	"sync"
+	"time"
+)
+
+// START
+func main() {
+	// 创建一个有限容量的资源池，最多可以同时处理4个数据处理任务
+	dataProcessingPool := semaphore.NewWeighted(4)
+
+	var wg sync.WaitGroup
+	// 模拟多个数据处理任务同时到达
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			// 不同类型的数据处理任务可能需要不同的资源消耗
+			var cost int64
+			if id%2 == 0 {
+				cost = 3 // 对于偶数id的任务，设置较大的资源消耗
+			} else {
+				cost = 1 // 对于奇数id的任务，设置较小的资源消耗
+			}
+
+			if dataProcessingPool.TryAcquire(cost) {
+				fmt.Printf("✅ Task %d acquired resource with cost %d\n", id, cost)
+				time.Sleep(time.Duration(cost) * time.Second) // 模拟任务处理时间
+				dataProcessingPool.Release(cost)              // 释放资源
+				fmt.Printf("Task %d released resource with cost %d\n", id, cost)
+			} else {
+				fmt.Printf("❌ Task %d failed to acquire resource with cost %d\n", id, cost)
+			}
+		}(i)
+	}
+
+	wg.Wait() // 等待所有任务处理完
+}
+
+// END

@@ -40,11 +40,11 @@ here's links to all the source files
 by Ben Johnson [[][@benbjohnson]]
 
 * key-value store
-[[http://127.0.0.1:9999/content/2021/boltdb/kv.go][kv.go]]
+[[http://127.0.0.1:9999/content/2021/boltdb/kv.go][kv.go ]]
 
-.code boltdb/kv.go /START OPEN OMIT/,/END OPEN OMIT/
-.code boltdb/kv.go /START PUT OMIT/,/END PUT OMIT/
-.play boltdb/kv.go /val/,/val\)\)/
+.code boltdb/kv.go.run /START OPEN OMIT/,/END OPEN OMIT/
+.code boltdb/kv.go.run /START PUT OMIT/,/END PUT OMIT/
+.play boltdb/kv.go.run /val/,/val\)\)/
 
 
 all []byte

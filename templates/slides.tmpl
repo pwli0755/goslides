@@ -10,6 +10,7 @@
       var notesEnabled = {{.NotesEnabled}};
     </script>
     <script src='/static/slides.js'></script>
+
     {{if .NotesEnabled}}
     <script>
       var sections = {{.Sections}};
@@ -23,7 +24,7 @@
    <script>
     	// 开启代码高亮
         document.addEventListener('DOMContentLoaded', (event) => {
-          document.querySelectorAll('pre code').forEach((block) => {
+          document.querySelectorAll('pre').forEach((block) => {
             hljs.highlightBlock(block);
           });
         });

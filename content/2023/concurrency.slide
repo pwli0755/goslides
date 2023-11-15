@@ -1,0 +1,382 @@
+# Concurrency In Go
+
+ *Golang并发控制介绍(portion)*
+ *2023年11月16日*
+Tags: concurrency, cond, atomic, semaphore, singleflight
+
+李鹏伟
+lipengwei@uniontech.com
+
+@uniontech
+
+## Intro
+**Go**语言已经原生提供了一些好用的并发原语，如`go`指令、`chan`、`context`、`sync`包等
+
+此外，[Go语言扩展库](https://pkg.go.dev/golang.org/x/sync)还提供了另外一组高级的并发控制原语
+
+我们主要讨论以下几个并发原语：
+
+- 原子操作 Atomic（标准库）
+- 条件变量 Cond（标准库）
+- 信号量 Semaphore
+- 请求合并 Singleflight
+- 错误组 errgroup
+
+## 原子操作 Atomic
+**定义：**
+
+原子操作，是指在执行的时候，其它线程不会看到执行一半的操作结果。
+在其它线程看来，原子操作要么执行完了，要么还没有执行，就像一个最小的粒子 - 原子一样，不可分割。
+
+**使用场景：**
+- 简单的并发读写某个**可取地址**的值
+- lock-free
+- cas乐观锁
+
+
+## 原子操作 Atomic
+**API：** (以uint64类型为例)
+- Add
+- Swap
+- CompareAndSwap
+- Load
+- Store
+
+```go
+func AddUint64(addr *uint64, delta uint64) (new uint64)
+
+func SwapUint64(addr *uint64, new uint64) (old uint64)
+
+func CompareAndSwapUint64(addr *uint64, old, new uint64) (swapped bool)
+
+func LoadUint64(addr *uint64) (val uint64)
+
+func StoreUint64(addr *uint64, val uint64)
+```
+
+## 原子操作 Atomic
+**CAS：**
+```go
+func CompareAndSwapUint64(addr *uint64, old, new uint64) (swapped bool)
+
+ // 伪代码
+if *addr == old {
+  *addr = new
+  return true
+}
+return false
+```
+比较当前 addr 地址里的值是不是 old，如果不等于 old，就返回 false；如果等于 old，就把此地址的值替换成 new 值，返回 true。这就相当于“判断相等才替换”。
+
+利用这个特性可实现乐观锁机制，当cas失败时重试或给上层返回失败。
+
+## 原子操作 Atomic
+**CAS：**
+
+.play cas/cas.go /START/,/END/
+
+
+## 原子操作 Atomic
+**atomic.Value：**
+```go
+type Value struct {
+	v any
+}
+func (v *Value) Load() (val any)
+func (v *Value) Store(val any)
+```
+
+.play atomic/value.go /START/,/END/
+
+
+
+// ## 原子操作 Atomic
+// **总结：**
+// <img src="cas.webp" alt="总结" width="700">
+
+
+## 条件变量 Cond
+
+Go 标准库提供 Cond 原语的目的是，为等待 / 通知场景下的并发问题提供支持。
+
+Cond 通常应用于等待某个条件的一组 goroutine，等条件变为 true 的时候，其中一个 goroutine 或者所有的 goroutine 都会被唤醒执行。
+
+顾名思义，Cond 是和某个条件相关，这个条件需要一组 goroutine 协作共同完成，在条件还没有满足的时候，所有等待这个条件的 goroutine 都会被阻塞住，
+只有这一组 goroutine 通过协作达到了这个条件，等待的 goroutine 才可能继续进行下去。
+
+那这里等待的条件是什么呢？等待的条件，可以是某个变量达到了某个阈值或者某个时间点，也可以是一组变量分别都达到了某个阈值，还可以是某个对象的状态满足了特定的条件。
+
+总结来讲，等待的条件是一种可以用来计算结果是 true 还是 false 的条件。
+
+
+## 条件变量 Cond
+
+```go
+  func NeWCond(l Locker) *Cond
+
+    // 允许调用者 Caller 唤醒一个等待此 Cond 的 goroutine。
+    // 如果 Cond 等待队列中有一个或者多个等待的 goroutine，
+    // 则需要从等待队列中移除第一个 goroutine 并把它唤醒。
+    // 同样地调用 Signal 方法时，不强求你一定要持有 c.L 的锁。
+  func (c *Cond) Signal()
+
+  // 允许调用者 Caller 唤醒所有等待此 Cond 的 goroutine。
+  // 如果 Cond 等待队列中有一个或者多个等待的 goroutine，
+  // 则清空所有等待的 goroutine，并全部唤醒。
+  // 同样地，调用 Broadcast 方法时，也不强求你一定持有 c.L 的锁。
+  func (c *Cond) Broadcast()
+
+  // 会把调用者 Caller 放入 Cond 的等待队列中并阻塞，
+  // 直到被 Signal 或者 Broadcast 的方法从等待队列中移除并唤醒。
+  // 调用 Wait 方法时必须要持有 c.L 的锁。
+  func (c *Cond) Wait()
+```
+
+
+## 条件变量 Cond
+
+.play cond/cond.go /START/,/END/
+
+上面的例子也可使用WaitGroup实现
+WaitGroup 是主 goroutine 等待确定数量的子 goroutine 完成任务；
+而 Cond 是等待某个条件满足，这个条件的修改可以被任意多的 goroutine 更新，
+而且 Cond 的 Wait 不关心也不知道其他 goroutine 的数量，只关心等待条件。
+而且 Cond 还有单个通知的机制，也就是 Signal 方法。
+
+
+## 条件变量 Cond
+
+使用Cond实现有限容量的队列：容量满时入队阻塞，容量空时出队阻塞
+
+```go
+
+type LimitedQueue struct {
+	cond     *sync.Cond
+	elements []int
+	maxSize  int
+}
+
+func NewLimitedQueue(maxSize int) *LimitedQueue {
+	return &LimitedQueue{
+		cond:     sync.NewCond(&sync.Mutex{}),
+		elements: make([]int, 0, maxSize),
+		maxSize:  maxSize,
+	}
+}
+
+func (q *LimitedQueue) Enqueue(value int) {
+	q.cond.L.Lock()
+	defer q.cond.L.Unlock()
+	for len(q.elements) == q.maxSize {
+		q.cond.Wait() // 等待队列不满的通知
+	}
+	q.elements = append(q.elements, value)
+	q.cond.Signal() // 通知队列不为空
+}
+
+func (q *LimitedQueue) Dequeue() int {
+	q.cond.L.Lock()
+	defer q.cond.L.Unlock()
+	for len(q.elements) == 0 {
+		q.cond.Wait() // 等待队列不空的通知
+	}
+	value := q.elements[0]
+	q.elements = q.elements[1:]
+	q.cond.Signal() // 通知队列不满
+	return value
+}
+
+```
+
+## 条件变量 Cond
+
+使用Cond实现有限容量的队列
+
+.play limited_queue/queue.go /START/,/END/
+
+
+## 信号量 Semaphore
+
+信号量（Semaphore）是一种用于控制对共享资源的访问的同步原语。
+它是由一个计数器和两个原子操作组成的。这个计数器用来表示可用的资源数量，原子操作用来对计数器进行增加和减少。
+信号量的基本操作包括两个：
+- P 操作
+- V 操作
+```go
+function V(semaphore S, integer I):
+    [S ← S + I]
+
+function P(semaphore S, integer I):
+    repeat:
+        [if S ≥ I:
+        S ← S − I
+        break]
+```
+P 操作会尝试获取一个资源，如果资源可用，它会将计数器减一并继续执行；
+如果资源不可用，它会阻塞当前线程直到资源可用。
+
+V 操作会释放一个资源，它会将计数器加一，并通知等待的线程有资源可用了。
+
+信号量可以用于解决多个线程之间的同步和互斥问题，例如控制对共享资源的访问、**限制并发线程数量**等。
+它是并发编程中常用的同步工具之一。
+
+## 信号量 Semaphore
+
+```go
+type Weighted struct {
+	size    int64
+	cur     int64
+	mu      sync.Mutex
+	waiters list.List
+}
+
+// 相对于chan，可一次尝试获取多个
+Acquire(ctx context.Context, n int64) error
+
+TryAcquire(n int64) bool
+
+Release(n int64)
+
+```
+Acquire 方法：
+相当于 P 操作，你可以一次获取多个资源，如果没有足够多的资源，调用者就会被阻塞。
+它的第一个参数是 Context，这就意味着，你可以通过 Context 增加超时或者 cancel 的机制。
+如果是正常获取了资源，就返回 nil；否则，就返回 ctx.Err()，信号量不改变。
+
+Release 方法：
+相当于 V 操作，可以将 n 个资源释放，返还给信号量。
+
+TryAcquire 方法：
+尝试获取 n 个资源，但是它不会阻塞，要么成功获取 n 个资源，返回 true，要么一个也不获取，返回 false。
+
+
+## 信号量 Semaphore
+
+.play Semaphore/main.go.run /START/,/END/
+
+
+## 请求合并 Singleflight
+
+SingleFlight 是 [sync扩展包](https://pkg.go.dev/golang.org/x/sync/singleflight)提供的一个扩展并发原语。
+它的作用是，在处理多个 goroutine 同时调用同一个函数的时候，只让一个 goroutine 去调用这个函数，
+等到这个 goroutine 返回结果的时候，再把结果返回给这几个同时调用的 goroutine，这样可以减少并发调用的数量。
+
+```go
+type Group struct {
+	mu sync.Mutex       // protects m
+	m  map[string]*call // lazily initialized
+}
+
+
+Do(key string, fn func() (interface{}, error)) (v interface{}, err error, shared bool)
+
+DoChan(key string, fn func() (interface{}, error)) <-chan Result
+
+Forget(key string)
+```
+
+Do：
+执行一个函数，并返回函数执行的结果。你需要提供一个 key，对于同一个 key，在同一时间只有一个在执行，同一个 key 并发的请求会等待。
+第一个执行的请求返回的结果，就是它的返回结果。函数 fn 是一个无参的函数，返回一个结果或者 error，
+shared 指示 v 是否返回给多个请求。
+
+DoChan：
+类似 Do 方法，只不过是返回一个 chan，等 fn 函数执行完，产生了结果以后，就能从这个 chan 中接收这个结果。
+
+Forget：
+告诉 Group 忘记这个 key。
+
+
+## 请求合并 Singleflight
+**源码：**
+```go
+  // 代表一个正在处理的请求，或者已经处理完的请求
+  type call struct {
+    wg sync.WaitGroup
+
+
+    // 这个字段代表处理完的值，在waitgroup完成之前只会写一次
+        // waitgroup完成之后就读取这个值
+    val interface{}
+    err error
+
+        // 指示当call在处理时是否要忘掉这个key
+    forgotten bool
+    dups  int
+    chans []chan<- Result
+  }
+
+    // group代表一个singleflight对象
+  type Group struct {
+    mu sync.Mutex       // protects m
+    m  map[string]*call // lazily initialized
+  }
+```
+
+
+
+```go
+   func (g *Group) Do(key string, fn func() (interface{}, error)) (v interface{}, err error, shared bool) {
+     g.mu.Lock()
+     if g.m == nil {
+       g.m = make(map[string]*call)
+     }
+     if c, ok := g.m[key]; ok {//如果已经存在相同的key
+       c.dups++
+       g.mu.Unlock()
+       c.wg.Wait() //等待这个key的第一个请求完成
+       return c.val, c.err, true //使用第一个key的请求结果
+     }
+     c := new(call) // 第一个请求，创建一个call
+     c.wg.Add(1)
+     g.m[key] = c //加入到key map中
+     g.mu.Unlock()
+
+     g.doCall(c, key, fn) // 调用方法
+     return c.val, c.err, c.dups > 0
+   }
+```
+
+
+```go
+   func (g *Group) doCall(c *call, key string, fn func() (interface{}, error)) {
+     c.val, c.err = fn()
+     c.wg.Done()
+
+     g.mu.Lock()
+     if !c.forgotten { // 已调用完，删除这个key
+       delete(g.m, key)
+     }
+     for _, ch := range c.chans {
+       ch <- Result{c.val, c.err, c.dups > 0}
+     }
+     g.mu.Unlock()
+   }
+```
+
+
+
+
+## 请求合并 Singleflight
+
+**使用场景：**
+
+- 缓存击穿解决，将并发的请求可以共享同一个结果
+- 通过合并请求的方式降低对下游服务的并发压力，从而提高系统的性能，常常用于缓存系统中
+- 一些存在并发的较为耗时的统计报表查询
+
+
+## errgroup
+
+errgroup.Group 是 Go 语言标准库 golang.org/x/sync/errgroup 中的一个类型，它用于管理一组 goroutine 的错误。
+
+errgroup.Group 可以用于在多个 goroutine 中执行任务，Wait方法会阻塞直到Go方法中的所有函数调用都已返回，然后返回它们中的第一个非nil错误（如果有的话）。
+
+
+.play errgroup/main.go.run /START/,/END/
+
+
+
+
+
+
